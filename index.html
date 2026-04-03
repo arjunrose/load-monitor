@@ -3,70 +3,131 @@
 <head>
   <title>ESP32 Load Monitor</title>
 
+  <!-- Firebase -->
   <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase.js"></script>
+
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
   <style>
     body {
-      font-family: Arial;
-      text-align: center;
-      background: #111;
+      font-family: 'Segoe UI';
+      background: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
       color: white;
+      text-align: center;
+    }
+
+    h1 {
+      margin-top: 20px;
+    }
+
+    .container {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
     }
 
     .box {
-      border: 2px solid #444;
+      background: rgba(255,255,255,0.05);
+      backdrop-filter: blur(10px);
+      border-radius: 15px;
       padding: 20px;
-      margin: 20px;
-      border-radius: 10px;
+      margin: 15px;
+      width: 300px;
+      box-shadow: 0 0 20px rgba(0,0,0,0.5);
     }
 
     input {
       padding: 10px;
-      width: 220px;
+      width: 80%;
+      border-radius: 8px;
+      border: none;
     }
 
     button {
       padding: 10px 20px;
       margin: 10px;
+      border-radius: 8px;
+      border: none;
       cursor: pointer;
+      font-weight: bold;
     }
 
-    .red { color: red; }
-    .green { color: lime; }
+    button:hover {
+      opacity: 0.8;
+    }
+
+    .green { color: #00ff88; }
+    .red { color: #ff4d4d; }
 
     #msg {
       margin-top: 10px;
-      font-weight: bold;
+    }
+
+    canvas {
+      max-width: 600px;
+      margin: auto;
     }
   </style>
 </head>
 
 <body>
 
-<h1>📦 Load Monitor</h1>
+<h1>📦 Smart Load Monitor</h1>
 
-<div class="box">
-  <h2 id="weight">Weight: -- kg</h2>
-  <h3 id="status" class="red">Disconnected</h3>
+<div class="container">
+
+  <!-- STATUS BOX -->
+  <div class="box">
+    <h2 id="weight">Weight: -- kg</h2>
+    <h3 id="status" class="red">DISCONNECTED</h3>
+  </div>
+
+  <!-- CONTROL BOX -->
+  <div class="box">
+    <input type="text" id="textInput" placeholder="Enter LCD text">
+    <br>
+    <button onclick="sendText()">Send</button>
+    <button onclick="clearLCD()">Quit</button>
+    <div id="msg"></div>
+  </div>
+
 </div>
 
-<div class="box">
-  <input type="text" id="textInput" placeholder="Enter LCD text">
-  <br>
-  <button onclick="sendText()">Send</button>
-  <button onclick="clearLCD()">Quit</button>
-
-  <div id="msg"></div>
+<!-- GRAPH -->
+<div class="box" style="width:80%;">
+  <h3>📈 Live Weight Graph</h3>
+  <canvas id="chart"></canvas>
 </div>
 
 <script>
 
+// FIREBASE CONFIG
 var firebaseConfig = {
   databaseURL: "https://weight-detection-ba242-default-rtdb.asia-southeast1.firebasedatabase.app"
 };
 
 firebase.initializeApp(firebaseConfig);
 var db = firebase.database();
+
+// GRAPH SETUP
+var ctx = document.getElementById('chart').getContext('2d');
+
+var chart = new Chart(ctx, {
+  type: 'line',
+  data: {
+    labels: [],
+    datasets: [{
+      label: 'Weight (kg)',
+      data: [],
+      borderWidth: 2,
+      tension: 0.3
+    }]
+  },
+  options: {
+    responsive: true
+  }
+});
 
 // SEND TEXT
 function sendText() {
@@ -91,9 +152,13 @@ db.ref("/").on("value", function(snapshot) {
   var data = snapshot.val();
   if (!data) return;
 
-  document.getElementById("weight").innerText =
-    "Weight: " + (data.weight || 0) + " kg";
+  let weight = data.weight || 0;
 
+  // UPDATE TEXT
+  document.getElementById("weight").innerText =
+    "Weight: " + weight + " kg";
+
+  // STATUS
   var now = Date.now();
   var lastSeen = data.lastSeen || 0;
 
@@ -104,6 +169,20 @@ db.ref("/").on("value", function(snapshot) {
     document.getElementById("status").innerText = "DISCONNECTED";
     document.getElementById("status").className = "red";
   }
+
+  // UPDATE GRAPH
+  let time = new Date().toLocaleTimeString();
+
+  chart.data.labels.push(time);
+  chart.data.datasets[0].data.push(weight);
+
+  // LIMIT DATA (last 20 points)
+  if (chart.data.labels.length > 20) {
+    chart.data.labels.shift();
+    chart.data.datasets[0].data.shift();
+  }
+
+  chart.update();
 });
 
 </script>
