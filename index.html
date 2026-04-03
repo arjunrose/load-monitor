@@ -3,7 +3,6 @@
 <head>
   <title>ESP32 Load Monitor</title>
 
-  <!-- Firebase -->
   <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase.js"></script>
 
   <style>
@@ -23,7 +22,7 @@
 
     input {
       padding: 10px;
-      width: 200px;
+      width: 220px;
     }
 
     button {
@@ -34,6 +33,11 @@
 
     .red { color: red; }
     .green { color: lime; }
+
+    #msg {
+      margin-top: 10px;
+      font-weight: bold;
+    }
   </style>
 </head>
 
@@ -51,33 +55,40 @@
   <br>
   <button onclick="sendText()">Send</button>
   <button onclick="clearLCD()">Quit</button>
+
+  <div id="msg"></div>
 </div>
 
 <script>
 
-// 🔴 PASTE YOUR FIREBASE CONFIG HERE
 var firebaseConfig = {
-  databaseURL: "https://weight-detection-ba242-default-rtdb.asia-southeast1.firebasedatabase.app/"
+  databaseURL: "https://weight-detection-ba242-default-rtdb.asia-southeast1.firebasedatabase.app"
 };
 
 firebase.initializeApp(firebaseConfig);
 var db = firebase.database();
 
-// Send text to LCD
+// SEND TEXT
 function sendText() {
   var text = document.getElementById("textInput").value;
-  db.ref("/lcdText").set(text);
+
+  db.ref("/lcdText").set(text)
+    .then(() => {
+      document.getElementById("msg").innerHTML = "✅ Sent";
+    })
+    .catch(() => {
+      document.getElementById("msg").innerHTML = "❌ Failed";
+    });
 }
 
-// Clear LCD
+// CLEAR LCD
 function clearLCD() {
   db.ref("/command").set("CLEAR");
 }
 
-// Read data
+// READ DATA
 db.ref("/").on("value", function(snapshot) {
   var data = snapshot.val();
-
   if (!data) return;
 
   document.getElementById("weight").innerText =
