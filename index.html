@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>ESP32 Load Monitor</title>
+
+  <!-- Firebase -->
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase.js"></script>
+
+  <style>
+    body {
+      font-family: Arial;
+      text-align: center;
+      background: #111;
+      color: white;
+    }
+
+    .box {
+      border: 2px solid #444;
+      padding: 20px;
+      margin: 20px;
+      border-radius: 10px;
+    }
+
+    input {
+      padding: 10px;
+      width: 200px;
+    }
+
+    button {
+      padding: 10px 20px;
+      margin: 10px;
+      cursor: pointer;
+    }
+
+    .red { color: red; }
+    .green { color: lime; }
+  </style>
+</head>
+
+<body>
+
+<h1>📦 Load Monitor</h1>
+
+<div class="box">
+  <h2 id="weight">Weight: -- kg</h2>
+  <h3 id="status" class="red">Disconnected</h3>
+</div>
+
+<div class="box">
+  <input type="text" id="textInput" placeholder="Enter LCD text">
+  <br>
+  <button onclick="sendText()">Send</button>
+  <button onclick="clearLCD()">Quit</button>
+</div>
+
+<script>
+
+// 🔴 PASTE YOUR FIREBASE CONFIG HERE
+var firebaseConfig = {
+  databaseURL: "https://weight-detection-ba242-default-rtdb.asia-southeast1.firebasedatabase.app/"
+};
+
+firebase.initializeApp(firebaseConfig);
+var db = firebase.database();
+
+// Send text to LCD
+function sendText() {
+  var text = document.getElementById("textInput").value;
+  db.ref("/lcdText").set(text);
+}
+
+// Clear LCD
+function clearLCD() {
+  db.ref("/command").set("CLEAR");
+}
+
+// Read data
+db.ref("/").on("value", function(snapshot) {
+  var data = snapshot.val();
+
+  if (!data) return;
+
+  document.getElementById("weight").innerText =
+    "Weight: " + (data.weight || 0) + " kg";
+
+  var now = Date.now();
+  var lastSeen = data.lastSeen || 0;
+
+  if (now - lastSeen < 10000) {
+    document.getElementById("status").innerText = "ONLINE";
+    document.getElementById("status").className = "green";
+  } else {
+    document.getElementById("status").innerText = "DISCONNECTED";
+    document.getElementById("status").className = "red";
+  }
+});
+
+</script>
+
+</body>
+</html>
