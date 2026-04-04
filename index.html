@@ -14,23 +14,27 @@
       font-family: Arial;
     }
 
-    button {
-      padding: 15px;
-      margin: 10px;
-      font-size: 18px;
-      border-radius: 10px;
-      border: none;
-      cursor: pointer;
+    #joystick {
+      width: 220px;
+      height: 220px;
+      background: #333;
+      border-radius: 50%;
+      margin: 30px auto;
+      position: relative;
     }
 
-    .green { background: green; }
-    .red { background: red; }
-    .orange { background: orange; }
-    .blue { background: blue; }
+    #stick {
+      width: 80px;
+      height: 80px;
+      background: #aaa;
+      border-radius: 50%;
+      position: absolute;
+      left: 70px;
+      top: 70px;
+    }
 
     #status {
       font-size: 22px;
-      margin-top: 20px;
     }
   </style>
 </head>
@@ -39,52 +43,79 @@
 
 <h1>🌴 Areca Harvest Robot</h1>
 
-<h2>Mode</h2>
-<button class="blue" onclick="setMode('manual')">Manual</button>
-<button class="blue" onclick="setMode('auto')">Auto</button>
-
-<h2>Movement</h2>
-<button class="green" onclick="sendCommand('forward')">⬆ Forward</button><br>
-
-<button onclick="sendCommand('left')">⬅ Left</button>
-<button onclick="sendCommand('right')">➡ Right</button><br>
-
-<button class="orange" onclick="sendCommand('stop')">⏹ Stop</button><br>
-<button class="red" onclick="sendCommand('backward')">⬇ Backward</button>
+<div id="joystick">
+  <div id="stick"></div>
+</div>
 
 <div id="status">Checking...</div>
 
 <script>
-  const firebaseConfig = {
-    apiKey: "YOUR_API_KEY",
-    authDomain: "areca-robot.firebaseapp.com",
-    databaseURL: "https://areca-robot-default-rtdb.asia-southeast1.firebasedatabase.app",
-    projectId: "areca-robot"
-  };
+const firebaseConfig = {
+  apiKey: "YOUR_API_KEY",
+  authDomain: "areca-robot.firebaseapp.com",
+  databaseURL: "https://areca-robot-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "areca-robot"
+};
 
-  firebase.initializeApp(firebaseConfig);
-  const db = firebase.database();
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
 
-  function sendCommand(cmd) {
-    db.ref("robot/command").set(cmd);
-  }
+const joy = document.getElementById("joystick");
+const stick = document.getElementById("stick");
 
-  function setMode(mode) {
-    db.ref("robot/mode").set(mode);
-  }
+let dragging = false;
 
-  db.ref("robot").on("value", (snap) => {
-    const data = snap.val() || {};
+joy.addEventListener("mousedown", () => dragging = true);
+document.addEventListener("mouseup", () => {
+  dragging = false;
+  resetStick();
+});
 
-    const now = Date.now();
-    const lastSeen = data.lastSeen || 0;
+document.addEventListener("mousemove", (e) => {
+  if (!dragging) return;
 
-    let online = (now - lastSeen < 4000);
+  const rect = joy.getBoundingClientRect();
 
-    document.getElementById("status").innerHTML =
-      (online ? "🟢 ONLINE" : "🔴 OFFLINE") +
-      "<br>Mode: " + (data.mode || "unknown");
+  let dx = e.clientX - rect.left - 110;
+  let dy = e.clientY - rect.top - 110;
+
+  let x = dx / 100;
+  let y = -dy / 100;
+
+  x = Math.max(-1, Math.min(1, x));
+  y = Math.max(-1, Math.min(1, y));
+
+  stick.style.left = (dx + 110 - 40) + "px";
+  stick.style.top = (dy + 110 - 40) + "px";
+
+  sendXY(x, y);
+});
+
+function resetStick() {
+  stick.style.left = "70px";
+  stick.style.top = "70px";
+  sendXY(0, 0);
+}
+
+function sendXY(x, y) {
+  db.ref("robot").update({
+    x: x,
+    y: y
   });
+}
+
+// STATUS
+db.ref("robot").on("value", (snap) => {
+  const data = snap.val() || {};
+
+  const now = Date.now();
+  const lastSeen = data.lastSeen || 0;
+
+  let online = (now - lastSeen < 4000);
+
+  document.getElementById("status").innerHTML =
+    (online ? "🟢 ONLINE" : "🔴 OFFLINE");
+});
 </script>
 
 </body>
