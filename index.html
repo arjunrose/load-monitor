@@ -53,30 +53,28 @@
 <script>
   // 🔥 YOUR FIREBASE CONFIG
   const firebaseConfig = {
-    apiKey: "YOUR_KEY",
-    authDomain: "YOUR_PROJECT.firebaseapp.com",
+    apiKey: "YOUR_API_KEY",
+    authDomain: "areca-robot.firebaseapp.com",
     databaseURL: "https://areca-robot-default-rtdb.asia-southeast1.firebasedatabase.app",
-    projectId: "YOUR_PROJECT"
+    projectId: "areca-robot"
   };
 
   firebase.initializeApp(firebaseConfig);
   const db = firebase.database();
 
-  // ================= SEND COMMAND =================
+  // SEND COMMAND
   function sendCommand(cmd) {
     db.ref("robot/command").set(cmd);
   }
 
-  // ================= SET MODE =================
+  // SET MODE
   function setMode(mode) {
     db.ref("robot/mode").set(mode);
   }
 
-  // ================= STATUS =================
+  // STATUS LISTENER
   db.ref("robot").on("value", (snap) => {
-    const data = snap.val();
-
-    if (!data) return;
+    const data = snap.val() || {};
 
     const now = Date.now();
     const lastSeen = data.lastSeen || 0;
