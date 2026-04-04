@@ -14,27 +14,63 @@
       font-family: Arial;
     }
 
-    #joystick {
-      width: 220px;
-      height: 220px;
-      background: #333;
-      border-radius: 50%;
-      margin: 30px auto;
+    /* MODE BUTTONS */
+    button {
+      padding: 12px 20px;
+      margin: 10px;
+      font-size: 16px;
+      border-radius: 8px;
+      border: none;
+      cursor: pointer;
+      background: #1e90ff;
+      color: white;
+    }
+
+    /* JOYSTICK AREA */
+    #joystickContainer {
+      width: 260px;
+      height: 260px;
+      margin: 40px auto;
       position: relative;
     }
 
+    /* OUTER CIRCLE */
+    #joystick {
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.05);
+      border: 2px solid rgba(255,255,255,0.2);
+      position: relative;
+    }
+
+    /* ARROWS (visual only) */
+    .arrow {
+      position: absolute;
+      color: rgba(255,255,255,0.4);
+      font-size: 20px;
+    }
+
+    .up    { top: 10px; left: 50%; transform: translateX(-50%); }
+    .down  { bottom: 10px; left: 50%; transform: translateX(-50%); }
+    .left  { left: 10px; top: 50%; transform: translateY(-50%); }
+    .right { right: 10px; top: 50%; transform: translateY(-50%); }
+
+    /* STICK */
     #stick {
       width: 80px;
       height: 80px;
-      background: #aaa;
+      background: white;
       border-radius: 50%;
       position: absolute;
-      left: 70px;
-      top: 70px;
+      left: 90px;
+      top: 90px;
+      transition: 0.1s;
     }
 
     #status {
-      font-size: 22px;
+      margin-top: 20px;
+      font-size: 20px;
     }
   </style>
 </head>
@@ -43,8 +79,23 @@
 
 <h1>🌴 Areca Harvest Robot</h1>
 
-<div id="joystick">
-  <div id="stick"></div>
+<h2>Mode</h2>
+<button onclick="setMode('manual')">Manual</button>
+<button onclick="setMode('auto')">Auto</button>
+
+<div id="joystickContainer">
+  <div id="joystick">
+
+    <!-- ARROWS -->
+    <div class="arrow up">▲</div>
+    <div class="arrow down">▼</div>
+    <div class="arrow left">◀</div>
+    <div class="arrow right">▶</div>
+
+    <!-- STICK -->
+    <div id="stick"></div>
+
+  </div>
 </div>
 
 <div id="status">Checking...</div>
@@ -60,43 +111,64 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 
-const joy = document.getElementById("joystick");
+const joystick = document.getElementById("joystick");
 const stick = document.getElementById("stick");
 
-let dragging = false;
+let active = false;
 
-joy.addEventListener("mousedown", () => dragging = true);
-document.addEventListener("mouseup", () => {
-  dragging = false;
-  resetStick();
-});
+// START TOUCH / CLICK
+joystick.addEventListener("mousedown", () => active = true);
+joystick.addEventListener("touchstart", () => active = true);
 
-document.addEventListener("mousemove", (e) => {
-  if (!dragging) return;
+// STOP TOUCH
+document.addEventListener("mouseup", stopControl);
+document.addEventListener("touchend", stopControl);
 
-  const rect = joy.getBoundingClientRect();
+function stopControl() {
+  active = false;
 
-  let dx = e.clientX - rect.left - 110;
-  let dy = e.clientY - rect.top - 110;
+  // RETURN TO CENTER
+  stick.style.left = "90px";
+  stick.style.top = "90px";
 
-  let x = dx / 100;
-  let y = -dy / 100;
-
-  x = Math.max(-1, Math.min(1, x));
-  y = Math.max(-1, Math.min(1, y));
-
-  stick.style.left = (dx + 110 - 40) + "px";
-  stick.style.top = (dy + 110 - 40) + "px";
-
-  sendXY(x, y);
-});
-
-function resetStick() {
-  stick.style.left = "70px";
-  stick.style.top = "70px";
-  sendXY(0, 0);
+  sendXY(0, 0); // STOP
 }
 
+// MOVE
+document.addEventListener("mousemove", moveStick);
+document.addEventListener("touchmove", moveStick);
+
+function moveStick(e) {
+  if (!active) return;
+
+  const rect = joystick.getBoundingClientRect();
+
+  let clientX = e.touches ? e.touches[0].clientX : e.clientX;
+  let clientY = e.touches ? e.touches[0].clientY : e.clientY;
+
+  let dx = clientX - rect.left - 130;
+  let dy = clientY - rect.top - 130;
+
+  let dist = Math.sqrt(dx * dx + dy * dy);
+  let max = 100;
+
+  // LIMIT MOVEMENT INSIDE CIRCLE
+  if (dist > max) {
+    dx = dx * max / dist;
+    dy = dy * max / dist;
+  }
+
+  let x = dx / max;
+  let y = -dy / max;
+
+  // MOVE STICK
+  stick.style.left = (dx + 130 - 40) + "px";
+  stick.style.top = (dy + 130 - 40) + "px";
+
+  sendXY(x, y);
+}
+
+// SEND TO FIREBASE
 function sendXY(x, y) {
   db.ref("robot").update({
     x: x,
@@ -104,17 +176,22 @@ function sendXY(x, y) {
   });
 }
 
+// MODE
+function setMode(mode) {
+  db.ref("robot/mode").set(mode);
+}
+
 // STATUS
 db.ref("robot").on("value", (snap) => {
   const data = snap.val() || {};
-
   const now = Date.now();
   const lastSeen = data.lastSeen || 0;
 
   let online = (now - lastSeen < 4000);
 
   document.getElementById("status").innerHTML =
-    (online ? "🟢 ONLINE" : "🔴 OFFLINE");
+    (online ? "🟢 ONLINE" : "🔴 OFFLINE") +
+    "<br>Mode: " + (data.mode || "unknown");
 });
 </script>
 
