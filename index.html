@@ -45,13 +45,16 @@
 
 <h2>Movement</h2>
 <button class="green" onclick="sendCommand('forward')">⬆ Forward</button><br>
+
+<button onclick="sendCommand('left')">⬅ Left</button>
+<button onclick="sendCommand('right')">➡ Right</button><br>
+
 <button class="orange" onclick="sendCommand('stop')">⏹ Stop</button><br>
 <button class="red" onclick="sendCommand('backward')">⬇ Backward</button>
 
 <div id="status">Checking...</div>
 
 <script>
-  // 🔥 YOUR FIREBASE CONFIG
   const firebaseConfig = {
     apiKey: "YOUR_API_KEY",
     authDomain: "areca-robot.firebaseapp.com",
@@ -62,17 +65,14 @@
   firebase.initializeApp(firebaseConfig);
   const db = firebase.database();
 
-  // SEND COMMAND
   function sendCommand(cmd) {
     db.ref("robot/command").set(cmd);
   }
 
-  // SET MODE
   function setMode(mode) {
     db.ref("robot/mode").set(mode);
   }
 
-  // STATUS LISTENER
   db.ref("robot").on("value", (snap) => {
     const data = snap.val() || {};
 
@@ -81,10 +81,9 @@
 
     let online = (now - lastSeen < 4000);
 
-    let statusText = online ? "🟢 ONLINE" : "🔴 OFFLINE";
-
     document.getElementById("status").innerHTML =
-      statusText + "<br>Mode: " + (data.mode || "unknown");
+      (online ? "🟢 ONLINE" : "🔴 OFFLINE") +
+      "<br>Mode: " + (data.mode || "unknown");
   });
 </script>
 
