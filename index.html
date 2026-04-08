@@ -14,7 +14,6 @@
       font-family: Arial;
     }
 
-    /* MODE BUTTONS */
     button {
       padding: 12px 20px;
       margin: 10px;
@@ -26,7 +25,6 @@
       color: white;
     }
 
-    /* JOYSTICK AREA */
     #joystickContainer {
       width: 260px;
       height: 260px;
@@ -34,7 +32,6 @@
       position: relative;
     }
 
-    /* OUTER CIRCLE */
     #joystick {
       width: 100%;
       height: 100%;
@@ -44,7 +41,6 @@
       position: relative;
     }
 
-    /* ARROWS (visual only) */
     .arrow {
       position: absolute;
       color: rgba(255,255,255,0.4);
@@ -56,7 +52,6 @@
     .left  { left: 10px; top: 50%; transform: translateY(-50%); }
     .right { right: 10px; top: 50%; transform: translateY(-50%); }
 
-    /* STICK */
     #stick {
       width: 80px;
       height: 80px;
@@ -83,16 +78,17 @@
 <button onclick="setMode('manual')">Manual</button>
 <button onclick="setMode('auto')">Auto</button>
 
+<h2>Action</h2>
+<button onclick="harvest()">🌴 Harvest</button>
+
 <div id="joystickContainer">
   <div id="joystick">
 
-    <!-- ARROWS -->
     <div class="arrow up">▲</div>
     <div class="arrow down">▼</div>
     <div class="arrow left">◀</div>
     <div class="arrow right">▶</div>
 
-    <!-- STICK -->
     <div id="stick"></div>
 
   </div>
@@ -116,22 +112,19 @@ const stick = document.getElementById("stick");
 
 let active = false;
 
-// START TOUCH / CLICK
+// START
 joystick.addEventListener("mousedown", () => active = true);
 joystick.addEventListener("touchstart", () => active = true);
 
-// STOP TOUCH
+// STOP
 document.addEventListener("mouseup", stopControl);
 document.addEventListener("touchend", stopControl);
 
 function stopControl() {
   active = false;
-
-  // RETURN TO CENTER
   stick.style.left = "90px";
   stick.style.top = "90px";
-
-  sendXY(0, 0); // STOP
+  sendXY(0, 0);
 }
 
 // MOVE
@@ -152,7 +145,6 @@ function moveStick(e) {
   let dist = Math.sqrt(dx * dx + dy * dy);
   let max = 100;
 
-  // LIMIT MOVEMENT INSIDE CIRCLE
   if (dist > max) {
     dx = dx * max / dist;
     dy = dy * max / dist;
@@ -161,19 +153,23 @@ function moveStick(e) {
   let x = dx / max;
   let y = -dy / max;
 
-  // MOVE STICK
   stick.style.left = (dx + 130 - 40) + "px";
   stick.style.top = (dy + 130 - 40) + "px";
 
   sendXY(x, y);
 }
 
-// SEND TO FIREBASE
 function sendXY(x, y) {
-  db.ref("robot").update({
-    x: x,
-    y: y
-  });
+  db.ref("robot").update({ x: x, y: y });
+}
+
+// 🌴 HARVEST BUTTON
+function harvest() {
+  db.ref("robot/harvest").set(1);
+
+  setTimeout(() => {
+    db.ref("robot/harvest").set(0);
+  }, 500);
 }
 
 // MODE
