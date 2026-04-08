@@ -60,7 +60,7 @@
       position: absolute;
       left: 90px;
       top: 90px;
-      transition: 0.1s;
+      transition: 0.05s;
     }
 
     #status {
@@ -94,14 +94,19 @@
   </div>
 </div>
 
-<div id="status">Checking...</div>
+<div id="status">Connecting...</div>
 
 <script>
+
+// 🔥 REPLACE THIS WITH YOUR REAL CONFIG
 const firebaseConfig = {
-  apiKey: "YOUR_API_KEY",
+  apiKey: "YOUR_REAL_API_KEY",
   authDomain: "areca-robot.firebaseapp.com",
   databaseURL: "https://areca-robot-default-rtdb.asia-southeast1.firebasedatabase.app",
-  projectId: "areca-robot"
+  projectId: "areca-robot",
+  storageBucket: "areca-robot.appspot.com",
+  messagingSenderId: "897521287655",
+  appId: "YOUR_APP_ID"
 };
 
 firebase.initializeApp(firebaseConfig);
@@ -159,17 +164,20 @@ function moveStick(e) {
   sendXY(x, y);
 }
 
+// SEND XY
 function sendXY(x, y) {
   db.ref("robot").update({ x: x, y: y });
 }
 
 // 🌴 HARVEST BUTTON
 function harvest() {
+  console.log("Harvest clicked");
+
   db.ref("robot/harvest").set(1);
 
   setTimeout(() => {
     db.ref("robot/harvest").set(0);
-  }, 500);
+  }, 800);
 }
 
 // MODE
@@ -177,18 +185,26 @@ function setMode(mode) {
   db.ref("robot/mode").set(mode);
 }
 
-// STATUS
+// 🔥 STATUS (FIXED)
 db.ref("robot").on("value", (snap) => {
-  const data = snap.val() || {};
-  const now = Date.now();
-  const lastSeen = data.lastSeen || 0;
 
-  let online = (now - lastSeen < 4000);
+  const data = snap.val() || {};
+  console.log("Firebase Data:", data);
+
+  let online = false;
+
+  if (data.lastSeen) {
+    let diff = Date.now() - data.lastSeen;
+    console.log("Time diff:", diff);
+    online = diff < 15000; // 15 sec window
+  }
 
   document.getElementById("status").innerHTML =
     (online ? "🟢 ONLINE" : "🔴 OFFLINE") +
     "<br>Mode: " + (data.mode || "unknown");
+
 });
+
 </script>
 
 </body>
