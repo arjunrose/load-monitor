@@ -11,10 +11,11 @@
       background: #111;
       color: white;
       text-align: center;
-      font-family: Arial;
+      font-family: Arial, sans-serif;
+      touch-action: manipulation; /* Prevents double-tap zooming */
     }
 
-    button {
+    .top-btn {
       padding: 12px 20px;
       margin: 10px;
       font-size: 16px;
@@ -25,42 +26,44 @@
       color: white;
     }
 
-    #joystickContainer {
-      width: 260px;
-      height: 260px;
+    #harvestBtn {
+      background: #28a745;
+      font-weight: bold;
+    }
+
+    /* 8-WAY D-PAD GRID */
+    .dpad-container {
+      display: grid;
+      grid-template-columns: repeat(3, 80px);
+      grid-template-rows: repeat(3, 80px);
+      gap: 15px;
+      justify-content: center;
       margin: 40px auto;
-      position: relative;
     }
 
-    #joystick {
-      width: 100%;
-      height: 100%;
-      border-radius: 50%;
-      background: rgba(255,255,255,0.05);
-      border: 2px solid rgba(255,255,255,0.2);
-      position: relative;
+    .dir-btn {
+      background: #333;
+      color: white;
+      border: 2px solid #555;
+      border-radius: 12px;
+      font-size: 24px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      user-select: none; /* Prevents text highlighting on hold */
+      -webkit-user-select: none;
     }
 
-    .arrow {
-      position: absolute;
-      color: rgba(255,255,255,0.4);
-      font-size: 20px;
+    .dir-btn:active, .dir-btn.active-touch {
+      background: #1e90ff;
+      border-color: #fff;
+      transform: scale(0.95);
     }
 
-    .up    { top: 10px; left: 50%; transform: translateX(-50%); }
-    .down  { bottom: 10px; left: 50%; transform: translateX(-50%); }
-    .left  { left: 10px; top: 50%; transform: translateY(-50%); }
-    .right { right: 10px; top: 50%; transform: translateY(-50%); }
-
-    #stick {
-      width: 80px;
-      height: 80px;
-      background: white;
-      border-radius: 50%;
-      position: absolute;
-      left: 90px;
-      top: 90px;
-      transition: 0.05s;
+    .empty-center {
+      background: transparent;
+      border: none;
     }
 
     #status {
@@ -75,29 +78,28 @@
 <h1>🌴 Areca Harvest Robot</h1>
 
 <h2>Mode</h2>
-<button onclick="setMode('manual')">Manual</button>
-<button onclick="setMode('auto')">Auto</button>
+<button class="top-btn" onclick="setMode('manual')">Manual</button>
+<button class="top-btn" onclick="setMode('auto')">Auto</button>
 
 <h2>Action</h2>
-<button onclick="harvest()">🌴 Harvest</button>
+<button class="top-btn" id="harvestBtn" onclick="harvest()">🌴 Harvest</button>
 
-<div id="joystickContainer">
-  <div id="joystick">
+<div class="dpad-container">
+  <button class="dir-btn" onmousedown="press(-1, 1)" onmouseup="release()" onmouseleave="release()" ontouchstart="tPress(event, -1, 1)" ontouchend="release()">↖</button>
+  <button class="dir-btn" onmousedown="press(0, 1)" onmouseup="release()" onmouseleave="release()" ontouchstart="tPress(event, 0, 1)" ontouchend="release()">▲</button>
+  <button class="dir-btn" onmousedown="press(1, 1)" onmouseup="release()" onmouseleave="release()" ontouchstart="tPress(event, 1, 1)" ontouchend="release()">↗</button>
 
-    <div class="arrow up">▲</div>
-    <div class="arrow down">▼</div>
-    <div class="arrow left">◀</div>
-    <div class="arrow right">▶</div>
+  <button class="dir-btn" onmousedown="press(-1, 0)" onmouseup="release()" onmouseleave="release()" ontouchstart="tPress(event, -1, 0)" ontouchend="release()">◀</button>
+  <div class="empty-center"></div> <button class="dir-btn" onmousedown="press(1, 0)" onmouseup="release()" onmouseleave="release()" ontouchstart="tPress(event, 1, 0)" ontouchend="release()">▶</button>
 
-    <div id="stick"></div>
-
-  </div>
+  <button class="dir-btn" onmousedown="press(-1, -1)" onmouseup="release()" onmouseleave="release()" ontouchstart="tPress(event, -1, -1)" ontouchend="release()">↙</button>
+  <button class="dir-btn" onmousedown="press(0, -1)" onmouseup="release()" onmouseleave="release()" ontouchstart="tPress(event, 0, -1)" ontouchend="release()">▼</button>
+  <button class="dir-btn" onmousedown="press(1, -1)" onmouseup="release()" onmouseleave="release()" ontouchstart="tPress(event, 1, -1)" ontouchend="release()">↘</button>
 </div>
 
 <div id="status">Connecting...</div>
 
 <script>
-
 // 🔥 REPLACE THIS WITH YOUR REAL CONFIG
 const firebaseConfig = {
   apiKey: "YOUR_REAL_API_KEY",
@@ -112,100 +114,63 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 
-const joystick = document.getElementById("joystick");
-const stick = document.getElementById("stick");
+// --- DRIVE CONTROLS ---
+let isSending = false;
 
-let active = false;
-
-// START
-joystick.addEventListener("mousedown", () => active = true);
-joystick.addEventListener("touchstart", () => active = true);
-
-// STOP
-document.addEventListener("mouseup", stopControl);
-document.addEventListener("touchend", stopControl);
-
-function stopControl() {
-  active = false;
-  stick.style.left = "90px";
-  stick.style.top = "90px";
-  sendXY(0, 0);
-}
-
-// MOVE
-document.addEventListener("mousemove", moveStick);
-document.addEventListener("touchmove", moveStick);
-
-function moveStick(e) {
-  if (!active) return;
-
-  const rect = joystick.getBoundingClientRect();
-
-  let clientX = e.touches ? e.touches[0].clientX : e.clientX;
-  let clientY = e.touches ? e.touches[0].clientY : e.clientY;
-
-  let dx = clientX - rect.left - 130;
-  let dy = clientY - rect.top - 130;
-
-  let dist = Math.sqrt(dx * dx + dy * dy);
-  let max = 100;
-
-  if (dist > max) {
-    dx = dx * max / dist;
-    dy = dy * max / dist;
-  }
-
-  let x = dx / max;
-  let y = -dy / max;
-
-  stick.style.left = (dx + 130 - 40) + "px";
-  stick.style.top = (dy + 130 - 40) + "px";
-
-  sendXY(x, y);
-}
-
-// SEND XY
-function sendXY(x, y) {
+function press(x, y) {
+  if (isSending) return; // Prevent double firing
+  isSending = true;
   db.ref("robot").update({ x: x, y: y });
 }
 
-// 🌴 HARVEST BUTTON
-function harvest() {
-  console.log("Harvest clicked");
-
-  db.ref("robot/harvest").set(1);
-
-  setTimeout(() => {
-    db.ref("robot/harvest").set(0);
-  }, 800);
+// Separate function for touch to prevent screen scrolling while holding
+function tPress(event, x, y) {
+  event.preventDefault(); 
+  event.target.classList.add("active-touch"); // Manual visual feedback for touch
+  press(x, y);
 }
 
-// MODE
+function release(event) {
+  if (!isSending) return;
+  isSending = false;
+  
+  // Clear visual touch states
+  document.querySelectorAll('.dir-btn').forEach(btn => btn.classList.remove("active-touch"));
+  
+  // Send hard stop
+  db.ref("robot").update({ x: 0, y: 0 });
+}
+
+// Ensure lifting finger anywhere stops the robot
+document.addEventListener("mouseup", release);
+document.addEventListener("touchend", release);
+
+// --- ACTIONS ---
+function harvest() {
+  console.log("Harvest clicked");
+  db.ref("robot/harvest").set(1);
+  setTimeout(() => { db.ref("robot/harvest").set(0); }, 800);
+}
+
 function setMode(mode) {
   db.ref("robot/mode").set(mode);
 }
 
-// 🔥 STATUS (FIXED)
+// --- STATUS ---
 db.ref("robot").on("value", (snap) => {
-
   const data = snap.val() || {};
-  console.log("Firebase Data:", data);
-
   let online = false;
 
   if (data.lastSeen) {
     let diff = Date.now() - data.lastSeen;
-    console.log("Time diff:", diff);
     online = diff < 15000; // 15 sec window
   }
 
   document.getElementById("status").innerHTML =
     (online ? "🟢 ONLINE" : "🔴 OFFLINE") +
     "<br>Mode: " + (data.mode || "unknown");
-
 });
 
 </script>
-
 </body>
 </html>
